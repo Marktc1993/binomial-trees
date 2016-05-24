@@ -23,7 +23,7 @@ dotlattice <- function(S, labels=FALSE) {
   shape <- ifelse(labels == TRUE, "plaintext", "point")
   
   cat("digraph G {", "\n", sep="")
-  cat("node[shape=",shape,", samehead, sametail];","\n", sep="")
+  cat("node[shape=",shape,"];","\n", sep="")
   cat("rankdir=LR;","\n")
   
   cat("edge[arrowhead=none];","\n")
@@ -51,3 +51,6 @@ dotlattice <- function(S, labels=FALSE) {
   
   cat("}", sep="")
 }
+
+# x <- capture.output(dotlattice(genlattice(N=8, u=1.1, d=0.9)))
+# cat(x, file="lattice1.dot")
