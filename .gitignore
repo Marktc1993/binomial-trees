@@ -1,3 +1,7 @@
+# Dot files and graphical output
+*.png
+*.dot
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
