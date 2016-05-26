@@ -19,6 +19,51 @@ genlattice.vanilla.american.put <- function(Asset, Volatility, IntRate, Dividend
   return (genlattice.american(Asset=Asset, Volatility=Volatility, IntRate=IntRate, DividendRate=DividendRate, Strike=Strike, Expiry=Expiry, NoSteps=NoSteps, Payoff=payoff.vanilla.put))
 }
 
+# Generates a graph specification that can be fed into graphviz.
+# Input: the binomial lattice produced by one of genlattice family functions.
+dotlattice <- function(S, digits=2) {
+  
+  shape <- "plaintext"
+  
+  cat("digraph G {", "\n", sep="")
+  cat("node[shape=",shape,"];","\n", sep="")
+  cat("rankdir=LR;","\n")
+  
+  cat("edge[arrowhead=none];","\n")
+  
+  # Create a dot node for each element in the lattice
+  for (i in 1:nrow(S)) {
+    x <- round(S$asset[i], digits=digits)
+    y <- round(S$option[i], digits=digits)
+    
+    # Detect the American tree and draw accordingly
+    early.exercise <- ""
+    if (("exercise" %in% colnames(S)) && S$exercise[i]) {
+      early.exercise <- "shape=oval,"
+    }
+    
+    cat("node", i, "[", early.exercise, "label=\"", x, ", ", y, "\"];", "\n", sep="")
+  }
+  
+  # The number of levels in a binomial lattice of length N
+  # is `$\frac{\sqrt{8N+1}-1}{2}$`
+  L <- ((sqrt(8*nrow(S)+1)-1)/2 - 1)
+  
+  k<-1
+  for (i in 1:L) {
+    tabs <- rep("\t",i-1)
+    j <- i
+    while(j>0) {
+      cat("node",k,"->","node",(k+i),";\n",sep="")
+      cat("node",k,"->","node",(k+i+1),";\n",sep="")
+      k <- k + 1
+      j <- j - 1
+    }
+  }
+  
+  cat("}", sep="")
+}
+
 #
 # Some examples, uncommented to be easy to copy.
 #
@@ -153,53 +198,6 @@ genlattice.american <- function(Asset, Volatility, IntRate, DividendRate, Strike
   
   return(X)
 }
-
-# Generates a graph specification that can be fed into graphviz.
-# Input: the binomial lattice produced by one of genlattice family functions.
-dotlattice <- function(S, digits=2) {
-  
-  shape <- "plaintext"
-  
-  cat("digraph G {", "\n", sep="")
-  cat("node[shape=",shape,"];","\n", sep="")
-  cat("rankdir=LR;","\n")
-  
-  cat("edge[arrowhead=none];","\n")
-  
-  # Create a dot node for each element in the lattice
-  for (i in 1:nrow(S)) {
-    x <- round(S$asset[i], digits=digits)
-    y <- round(S$option[i], digits=digits)
-    
-    # Detect the American tree and draw accordingly
-    early.exercise <- ""
-    if (("exercise" %in% colnames(S)) && S$exercise[i]) {
-      early.exercise <- "shape=oval,"
-    }
-    
-    cat("node", i, "[", early.exercise, "label=\"", x, ", ", y, "\"];", "\n", sep="")
-  }
-  
-  # The number of levels in a binomial lattice of length N
-  # is `$\frac{\sqrt{8N+1}-1}{2}$`
-  L <- ((sqrt(8*nrow(S)+1)-1)/2 - 1)
-  
-  k<-1
-  for (i in 1:L) {
-    tabs <- rep("\t",i-1)
-    j <- i
-    while(j>0) {
-      cat("node",k,"->","node",(k+i),";\n",sep="")
-      cat("node",k,"->","node",(k+i+1),";\n",sep="")
-      k <- k + 1
-      j <- j - 1
-    }
-  }
-  
-  cat("}", sep="")
-}
-
-
 
 #
 # A fistful of option payoff functions of different types.
