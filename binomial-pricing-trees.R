@@ -2,11 +2,31 @@
 # Greatly expanded to actually price options.
 # Oliver Frolovs, 2016
 
+# The public interface, four valuation functions 
+# for vanilla calls and puts, European and American.
+genlattice.vanilla.european.call <- function(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps) {
+  return (genlattice(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps, Payoff=payoff.vanilla.call, Type="european"))
+}
+
+genlattice.vanilla.european.put <- function(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps) {
+  return (genlattice(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps, Payoff=payoff.vanilla.put, Type="european"))
+}
+
+genlattice.vanilla.american.call <- function(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps) {
+  return (genlattice(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps, Payoff=payoff.vanilla.call, Type="american"))
+}
+
+genlattice.vanilla.american.put <- function(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps) {
+  return (genlattice(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps, Payoff=payoff.vanilla.put, Type="american"))
+}
+
+# This function is private.
 # Generate a binomial lattice for option pricing problem
 # as specified by the function's arguments.
 # The Payoff argument expects a function of the form f(Asset, Strike).
-# The default argument values match the example 11.1 in (Hull, 2007) page 253.
-genlattice <- function(Asset=810, Volatility=0.2, IntRate=0.05, DividendRate=0.02, Strike=800, Expiry=0.5, NoSteps=2, Payoff=euro_call_payoff) {
+# Try with argument values from example 11.1 in (Hull, 2007) page 253.
+# genlattice(Asset=810, Volatility=0.2, IntRate=0.05, DividendRate=0.02, Strike=800, Expiry=0.5, NoSteps=2, Payoff=payoff.vanilla.call, Type="european")
+genlattice <- function(Asset, Volatility, IntRate, DividendRate, Strike, Expiry, NoSteps, Payoff, Type) {
   
   # The number of tree nodes to process.
   count <- sum(1 : (NoSteps+1))
@@ -16,6 +36,11 @@ genlattice <- function(Asset=810, Volatility=0.2, IntRate=0.05, DividendRate=0.0
   # inside the data frame will have to be computed.
   X <- data.frame(matrix(NA, nrow=count, ncol=2))
   names(X) <- c("asset", "option")
+  
+  # Early exercise flag for American only
+  if (Type == "american") {
+    X$early <- NA
+  }
   
   # Time between price movements.
   dt = Expiry / NoSteps
@@ -37,16 +62,30 @@ genlattice <- function(Asset=810, Volatility=0.2, IntRate=0.05, DividendRate=0.0
   # Work up and backwards. Backwards, comrades!
   for (i in NoSteps:0) {
     for (j in i:0) {
-      X$asset[count] <- Asset * u^(i-j) * d^j
+      AssetCurrent <- Asset * u^(i-j) * d^j
+      X$asset[count] <- AssetCurrent
       
       # Compute the payoff directly for the last step's nodes,
       # otherwise use a formula.
       if (i == NoSteps) {
-        X$option[count] <- Payoff(X$asset[count], Strike)
+        X$option[count] <- Payoff(AssetCurrent, Strike)
+        if (Type == "american") {
+          X$early[count] <- FALSE
+        }
       } else {
         up   <- X$option[sum(1:(i+1), j, 1)]
         down <- X$option[sum(1:(i+1), j+1, 1)]
-        X$option[count] <- DiscountFactor * (p * up + (1-p) * down)
+        V <- DiscountFactor * (p * up + (1-p) * down)
+        V.early <- Payoff(AssetCurrent,Strike)
+        switch(Type, "european" = V, "american" = max(V, V.early), stop("unknown option type"))
+        if (Type == "european") {
+          X$option[count] <- V
+        } else if (Type == "american") {
+          X$option[count] <- max(V, V.early)
+          X$early[count]  <- (V.early > V)
+        } else {
+          stop("unknown option type")
+        }
       }
       
       count <- count - 1
@@ -99,12 +138,11 @@ dotlattice <- function(S, digits=2, labels=TRUE) {
 # A fistful of option payoff functions of different types.
 # 
 
-# Vanilla European call payoff
-euro_call_payoff <- function(Asset, Strike) {
+payoff.vanilla.call <- function(Asset, Strike) {
   return( max(0, Asset - Strike) )
 }
 
-# Vanilla European put payoff
-euro_put_payoff <- function(Asset, Strike) {
+payoff.vanilla.put <- function(Asset, Strike) {
   return( max(0, Strike - Asset) )
 }
+
